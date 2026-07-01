@@ -1,0 +1,43 @@
+# ============================
+# Phase 1: 핵심 (필수)
+# ============================
+
+# Anthropic Claude API
+anthropic>=0.40.0
+
+# 데이터 유효성 검증
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# 환경 변수 로딩
+python-dotenv>=1.0.0
+
+# Whisper STT (로컬 실행, GPU 없어도 동작)
+openai-whisper>=20231117
+
+# Whisper 의존성 (CPU 전용)
+torch>=2.0.0
+
+# ============================
+# Phase 2: 외부 연동 (선택)
+# ============================
+
+# Slack
+# slack-sdk>=3.27.0
+
+# Notion
+# notion-client>=2.2.1
+
+# HTTP 요청 (KakaoTalk 등)
+# requests>=2.31.0
+
+# GitHub (마크다운 자동 커밋)
+# PyGithub>=2.1.1
+
+# ============================
+# Phase 3: 웹 대시보드 (선택)
+# ============================
+
+# Streamlit 대시보드
+# streamlit>=1.32.0
+# pandas>=2.0.0
