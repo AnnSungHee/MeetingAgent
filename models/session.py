@@ -22,6 +22,12 @@ class WeeklyPlan(BaseModel):
     presenter: Optional[str] = Field(default=None, description="다음 주 발표자")
 
 
+class OutputResult(BaseModel):
+    channel: str = Field(description="출력 채널 이름")
+    success: bool = Field(description="출력 성공 여부")
+    error: Optional[str] = Field(default=None, description="실패 원인")
+
+
 class MeetingSession(BaseModel):
     session_id: str = Field(description="세션 고유 ID (날짜 기반)")
     date: str = Field(description="스터디 날짜 (YYYY-MM-DD)")
@@ -31,6 +37,10 @@ class MeetingSession(BaseModel):
     action_items: list[ActionItem] = Field(description="참석자별 액션 아이템")
     next_week_plan: WeeklyPlan = Field(description="다음 주 스터디 계획")
     raw_transcript: Optional[str] = Field(default=None, description="원본 회의 내용")
+    output_results: list[OutputResult] = Field(
+        default_factory=list,
+        description="출력 채널별 처리 결과",
+    )
     created_at: str = Field(
         default_factory=lambda: datetime.now().isoformat(),
         description="처리 시각",

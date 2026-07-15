@@ -14,12 +14,21 @@ AI Agent 학습 핵심 패턴:
 import json
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 from agent.llm import LLMAdapter
 from agent.prompts import build_system_prompt, build_user_message
 from agent.tools import get_tools_for_outputs
 from config.settings import settings
-from models.session import MeetingSession
+from models.session import MeetingSession, OutputResult
+
+
+OUTPUT_TOOL_CHANNELS = {
+    "save_markdown": "markdown",
+    "create_notion_page": "notion",
+    "post_to_slack": "slack",
+    "post_to_kakao": "kakao",
+}
 
 
 class MeetingAgent:
@@ -43,6 +52,7 @@ class MeetingAgent:
                               None이면 .env 설정 사용.
         """
         active_outputs = output_overrides if output_overrides is not None else settings.active_outputs()
+        settings.validate_runtime(active_outputs)
 
         system_prompt = build_system_prompt(active_outputs)
         user_message = build_user_message(transcript, supplementary_text)
@@ -54,11 +64,17 @@ class MeetingAgent:
         print("[Agent] LLM에게 회의 내용 전달 중...\n")
 
         session: Optional[MeetingSession] = None
+        output_results: dict[str, OutputResult] = {}
         iteration = 0
 
         # AI Agent 핵심 루프
         while True:
             iteration += 1
+            if iteration > settings.max_agent_iterations:
+                raise RuntimeError(
+                    f"도구 호출이 {settings.max_agent_iterations}회를 초과했습니다. "
+                    "LLM 응답을 확인하세요."
+                )
             response = self.llm.chat(messages=messages, tools=tools, system=system_prompt)
 
             print(f"[Agent] 반복 {iteration} - stop_reason: {response.stop_reason}")
@@ -74,12 +90,27 @@ class MeetingAgent:
                 tool_input = tool_use["input"]
                 tool_use_id = tool_use["id"]
 
-                print(f"[Agent] 도구 실행: {tool_name}")
-                result = self._execute_tool(tool_name, tool_input)
+                channel = OUTPUT_TOOL_CHANNELS.get(tool_name)
+                if channel and session is None:
+                    result = {
+                        "success": False,
+                        "error": "save_session_summary가 성공하기 전에 출력 도구를 실행할 수 없습니다.",
+                    }
+                else:
+                    print(f"[Agent] 도구 실행: {tool_name}")
+                    result = self._execute_tool(tool_name, tool_input)
 
                 # save_session_summary 결과로 MeetingSession 생성
                 if tool_name == "save_session_summary" and result.get("success"):
                     session = result["session"]
+
+                if channel:
+                    # 한 채널의 일시적 장애가 다른 채널 배포를 막지 않도록 결과만 기록한다.
+                    output_results[channel] = OutputResult(
+                        channel=channel,
+                        success=result.get("success", False),
+                        error=result.get("error"),
+                    )
 
                 tool_results.append({
                     "type": "tool_result",
@@ -91,9 +122,8 @@ class MeetingAgent:
                     "is_error": not result.get("success", True),
                 })
 
-            # 다음 루프: assistant 응답 + tool_result를 메시지에 추가
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": tool_results})
+            # 제공자별 메시지 형식 변환은 LLMAdapter가 담당한다.
+            self.llm.append_tool_results(messages, response, tool_results)
 
         if session is None:
             raise RuntimeError(
@@ -101,6 +131,15 @@ class MeetingAgent:
                 "시스템 프롬프트 또는 도구 스키마를 확인하세요."
             )
 
+        missing_outputs = set(active_outputs) - set(output_results)
+        # 프롬프트 지시만으로는 출력 도구 호출을 보장할 수 없으므로 종료 시 강제 검증한다.
+        if missing_outputs:
+            raise RuntimeError(
+                "활성화된 출력 도구가 호출되지 않았습니다: "
+                f"{', '.join(sorted(missing_outputs))}"
+            )
+
+        session.output_results = list(output_results.values())
         self._persist_session(session, transcript, supplementary_text)
         return session
 
@@ -132,7 +171,7 @@ class MeetingAgent:
         from datetime import datetime
 
         date_str = datetime.now().strftime("%Y-%m-%d")
-        session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        session_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid4().hex[:8]}"
 
         session = MeetingSession(
             session_id=session_id,

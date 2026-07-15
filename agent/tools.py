@@ -96,7 +96,13 @@ SAVE_SESSION_SUMMARY_TOOL = {
                 "required": ["topics"],
             },
         },
-        "required": ["participants", "overall_summary", "action_items", "next_week_plan"],
+        "required": [
+            "participants",
+            "overall_summary",
+            "topics_discussed",
+            "action_items",
+            "next_week_plan",
+        ],
     },
 }
 

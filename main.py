@@ -103,6 +103,12 @@ def main() -> None:
     if session.next_week_plan.topics:
         print(f"\n다음 주 주제: {', '.join(session.next_week_plan.topics)}")
 
+    failed_outputs = [result for result in session.output_results if not result.success]
+    if failed_outputs:
+        print("\n출력 실패:")
+        for result in failed_outputs:
+            print(f"  - {result.channel}: {result.error}")
+
     print("=" * 50)
 
 
