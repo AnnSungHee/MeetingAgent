@@ -1,4 +1,5 @@
 from typing import Optional
+import shutil
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,11 +13,30 @@ class Settings(BaseSettings):
     )
 
     # LLM 설정
-    llm_provider: str = Field(default="anthropic", alias="LLM_PROVIDER")
+    llm_provider: str = Field(default="codex", alias="LLM_PROVIDER")
     anthropic_api_key: Optional[str] = Field(default=None, alias="ANTHROPIC_API_KEY")
     anthropic_model: str = Field(default="claude-sonnet-4-6", alias="ANTHROPIC_MODEL")
     openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
+    codex_command: str = Field(default="codex", alias="CODEX_COMMAND")
+    codex_model: Optional[str] = Field(default=None, alias="CODEX_MODEL")
+    codex_reasoning_effort: str = Field(default="low", alias="CODEX_REASONING_EFFORT")
+    codex_timeout_seconds: int = Field(default=600, alias="CODEX_TIMEOUT_SECONDS")
+    codex_account_usage_enabled: bool = Field(
+        default=True, alias="CODEX_ACCOUNT_USAGE_ENABLED"
+    )
+    codex_account_cache_seconds: int = Field(
+        default=30, alias="CODEX_ACCOUNT_CACHE_SECONDS"
+    )
+    codex_account_timeout_seconds: int = Field(
+        default=10, alias="CODEX_ACCOUNT_TIMEOUT_SECONDS"
+    )
+    codex_token_budget: Optional[int] = Field(
+        default=1_000_000, alias="CODEX_TOKEN_BUDGET"
+    )
+    token_usage_path: str = Field(
+        default="data/usage/codex.json", alias="TOKEN_USAGE_PATH"
+    )
 
     # Whisper
     whisper_model: str = Field(default="base", alias="WHISPER_MODEL")
@@ -44,8 +64,10 @@ class Settings(BaseSettings):
 
     def validate_llm(self) -> None:
         """실행 전 LLM API 키 존재 여부 확인."""
-        if self.llm_provider not in {"anthropic", "openai"}:
-            raise ValueError("LLM_PROVIDER는 'anthropic' 또는 'openai'여야 합니다.")
+        if self.llm_provider not in {"anthropic", "openai", "codex"}:
+            raise ValueError(
+                "LLM_PROVIDER는 'anthropic', 'openai', 'codex' 중 하나여야 합니다."
+            )
         if self.llm_provider == "anthropic" and not self.anthropic_api_key:
             raise ValueError(
                 "ANTHROPIC_API_KEY가 설정되지 않았습니다. "
@@ -55,6 +77,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "OPENAI_API_KEY가 설정되지 않았습니다. "
                 ".env 파일에 OPENAI_API_KEY=sk-... 를 추가하세요."
+            )
+        if self.llm_provider == "codex" and not shutil.which(self.codex_command):
+            raise ValueError(
+                f"Codex CLI를 찾을 수 없습니다: {self.codex_command}. "
+                "CODEX_COMMAND 경로 또는 Codex 설치 상태를 확인하세요."
             )
 
     def validate_runtime(self, active_outputs: list[str]) -> None:

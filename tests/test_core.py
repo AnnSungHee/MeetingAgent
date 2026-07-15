@@ -31,6 +31,10 @@ class FakeAdapter:
         messages.append({"role": "user", "content": "tool results"})
 
 
+class SingleCallFakeAdapter(FakeAdapter):
+    requires_tool_result_roundtrip = False
+
+
 def tool_response(*tool_uses: dict) -> LLMResponse:
     return LLMResponse(
         stop_reason="tool_use",
@@ -129,3 +133,25 @@ def test_session_ids_are_unique() -> None:
     second = agent._save_session_summary(SUMMARY_INPUT)["session"].session_id
 
     assert first != second
+
+
+def test_single_call_adapter_skips_tool_result_roundtrip(
+    configured_settings: None,
+) -> None:
+    fake = SingleCallFakeAdapter([
+        tool_response(
+            tool("summary", "save_session_summary", SUMMARY_INPUT),
+            tool(
+                "markdown",
+                "save_markdown",
+                {"filename": "note", "content": "# 회의록"},
+            ),
+        ),
+    ])
+
+    session = make_agent(fake).run(
+        supplementary_text="회의 내용", output_overrides=["markdown"]
+    )
+
+    assert session.overall_summary == SUMMARY_INPUT["overall_summary"]
+    assert fake.appended == []

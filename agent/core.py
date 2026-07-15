@@ -122,6 +122,12 @@ class MeetingAgent:
                     "is_error": not result.get("success", True),
                 })
 
+            # Codex는 토큰 절감을 위해 모든 payload를 한 번에 생성한다.
+            # 로컬 도구 실행 결과를 확인시키는 두 번째 모델 호출은 생략한다.
+            if not getattr(self.llm, "requires_tool_result_roundtrip", True):
+                print("[Agent] Codex 단일 호출 모드 - 추가 LLM 왕복 생략.")
+                break
+
             # 제공자별 메시지 형식 변환은 LLMAdapter가 담당한다.
             self.llm.append_tool_results(messages, response, tool_results)
 
