@@ -19,7 +19,6 @@
 | 액션 아이템 | 참석자별 할 일과 기한 자동 추출 |
 | 다음 주 계획 | 다음 스터디 주제 및 준비 사항 제안 |
 | 멀티 채널 배포 | Notion / Slack / KakaoTalk / Markdown |
-| 웹 대시보드 | Streamlit으로 과거 기록 조회 (Phase 3) |
 
 ---
 
@@ -56,7 +55,8 @@ Notion      Slack       KakaoTalk  Markdown
 ### 의존성 설치
 
 ```bash
-pip install -r requirements.txt
+uv venv
+uv pip install -r requirements.txt
 ```
 
 ### 환경 변수 설정
@@ -125,8 +125,6 @@ MeetingAgent/
 ├── config/
 │   └── settings.py         # 환경 변수 로딩
 ├── data/sessions/          # 처리된 세션 JSON 저장소
-└── web/
-    └── app.py              # Streamlit 대시보드
 ```
 
 ---
@@ -136,7 +134,7 @@ MeetingAgent/
 - **Phase 0** ✅ 문서화 (README, CLAUDE.md, AGENTS.md)
 - **Phase 1** 로컬 동작 핵심 (텍스트/음성 입력 → Markdown 출력)
 - **Phase 2** 외부 연동 (Notion / Slack / KakaoTalk)
-- **Phase 3** 웹 대시보드 (Streamlit)
+- **Phase 3** 웹 대시보드 (예정)
 
 ---
 
@@ -150,6 +148,14 @@ OPENAI_API_KEY=sk-...
 ```
 
 `agent/llm.py` 하나만 수정하면 새 LLM 제공자를 추가할 수 있습니다.
+
+## 테스트
+
+외부 API 키나 음성 파일 없이 핵심 도구 루프를 검증합니다.
+
+```bash
+uv run pytest
+```
 
 ---
 

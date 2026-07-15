@@ -40,9 +40,12 @@ class Settings(BaseSettings):
 
     # 데이터 저장
     data_dir: str = Field(default="data/sessions", alias="DATA_DIR")
+    max_agent_iterations: int = Field(default=10, alias="MAX_AGENT_ITERATIONS")
 
     def validate_llm(self) -> None:
         """실행 전 LLM API 키 존재 여부 확인."""
+        if self.llm_provider not in {"anthropic", "openai"}:
+            raise ValueError("LLM_PROVIDER는 'anthropic' 또는 'openai'여야 합니다.")
         if self.llm_provider == "anthropic" and not self.anthropic_api_key:
             raise ValueError(
                 "ANTHROPIC_API_KEY가 설정되지 않았습니다. "
@@ -53,6 +56,29 @@ class Settings(BaseSettings):
                 "OPENAI_API_KEY가 설정되지 않았습니다. "
                 ".env 파일에 OPENAI_API_KEY=sk-... 를 추가하세요."
             )
+
+    def validate_runtime(self, active_outputs: list[str]) -> None:
+        """선택된 제공자와 출력 채널에 필요한 설정을 검증한다."""
+        self.validate_llm()
+
+        # 외부 API를 호출하기 전에 누락 설정을 발견해 부분 배포를 예방한다.
+        required_settings = {
+            "slack": [
+                ("SLACK_BOT_TOKEN", self.slack_bot_token),
+                ("SLACK_CHANNEL", self.slack_channel),
+            ],
+            "notion": [
+                ("NOTION_API_KEY", self.notion_api_key),
+                ("NOTION_DATABASE_ID", self.notion_database_id),
+            ],
+            "kakao": [("KAKAO_WEBHOOK_URL", self.kakao_webhook_url)],
+        }
+        for output in active_outputs:
+            missing = [name for name, value in required_settings.get(output, []) if not value]
+            if missing:
+                raise ValueError(
+                    f"{output} 출력에 필요한 설정이 없습니다: {', '.join(missing)}"
+                )
 
     def active_outputs(self) -> list[str]:
         """활성화된 출력 채널 이름 목록 반환."""
