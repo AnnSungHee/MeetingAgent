@@ -15,7 +15,7 @@
 | 기능 | 설명 |
 |------|------|
 | 음성 → 텍스트 | OpenAI Whisper로 녹음 파일을 자동 변환 |
-| 회의 요약 | Claude AI가 핵심 내용을 구조화 |
+| 회의 요약 | Claude/OpenAI/Codex가 핵심 내용을 구조화 |
 | 액션 아이템 | 참석자별 할 일과 기한 자동 추출 |
 | 다음 주 계획 | 다음 스터디 주제 및 준비 사항 제안 |
 | 멀티 채널 배포 | Notion / Slack / KakaoTalk / Markdown |
@@ -33,7 +33,7 @@
                 ▼
     ┌─────────────────────────────────────┐
     │   AGENT LOOP (agent/core.py)        │
-    │   LLM API + Tool Use                │
+    │   LLM API 또는 Codex CLI + Tool Use │
     │   tool_use → execute → tool_result  │
     │   → loop until end_turn             │
     └─────────────────────────────────────┘
@@ -51,26 +51,31 @@ Notion      Slack       KakaoTalk  Markdown
 
 - Python 3.10 이상
 - ffmpeg (Whisper 음성 인식에 필요)
+- 로그인된 Codex CLI (기본 LLM provider 사용 시)
 
 ### 의존성 설치
 
 ```bash
 uv venv
 uv pip install -r requirements.txt
+codex login
 ```
 
 ### 환경 변수 설정
 
 ```bash
 cp .env.example .env
-# .env 파일을 열어 API 키 입력
+# .env 파일을 열어 실행 방식 설정
 ```
 
 최소 설정 (Phase 1 로컬 동작):
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+LLM_PROVIDER=codex
+CODEX_TOKEN_BUDGET=1000000
 OUTPUT_MARKDOWN=true
 ```
+
+`LLM_PROVIDER`를 생략해도 기본값은 `codex`입니다.
 
 ---
 
@@ -140,14 +145,31 @@ MeetingAgent/
 
 ## LLM 교체
 
-기본값은 Claude (Anthropic)이지만 `.env`에서 교체 가능:
+Claude/OpenAI API 외에 로그인된 Codex CLI를 사용할 수 있습니다:
 
 ```
-LLM_PROVIDER=openai   # anthropic (기본) 또는 openai
-OPENAI_API_KEY=sk-...
+LLM_PROVIDER=codex
+CODEX_TOKEN_BUDGET=1000000  # 웹 화면에서 사용할 로컬 관리 예산
+CODEX_REASONING_EFFORT=low
 ```
 
-`agent/llm.py` 하나만 수정하면 새 LLM 제공자를 추가할 수 있습니다.
+Codex 경로는 회의 요약 JSON을 한 번만 생성하고 채널별 문구는 로컬에서 렌더링하며,
+도구 결과 확인을 위한 추가 모델 왕복도 생략해 토큰 사용을 줄입니다. Codex CLI의
+저장된 로그인 인증을 재사용하므로 프로젝트에 LLM API Key를 저장하지 않습니다.
+추론 effort와 응답 verbosity도 낮게 고정합니다. 다만 `codex exec` 자체 에이전트
+지침에 따른 입력 토큰 베이스라인은 존재합니다.
+
+### 토큰 사용량 대시보드
+
+```bash
+python dashboard.py --port 8501
+```
+
+브라우저에서 `http://127.0.0.1:8501`을 열면 최근 호출, 누적 토큰,
+캐시/추론 토큰, 실제 Codex 계정의 5시간·주간 한도와 초기화 시각을 확인할 수
+있습니다. 실제 계정 값은 Codex App Server의 `account/rateLimits/read`와
+`account/usage/read`에서 가져오며 30초간 캐시합니다. App Server 연결 실패 시에도
+`CODEX_TOKEN_BUDGET` 기준의 로컬 잔여량은 계속 표시됩니다.
 
 ## 테스트
 

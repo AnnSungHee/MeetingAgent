@@ -75,7 +75,7 @@ LLM 제공자 교체 시 `llm.py` 하나만 수정하면 되도록 유지한다.
 
 - 외부 API 호출(Notion, Slack, KakaoTalk)은 try/except로 감싸고 실패 시 `is_error: true`를 tool_result로 반환
 - Whisper STT 실패 시 사용자에게 명확한 오류 메시지 출력
-- API 키 누락 시 `config/settings.py`에서 ValueError를 즉시 raise (묵시적 실패 금지)
+- API provider의 키 누락 또는 Codex CLI 미설치 시 `config/settings.py`에서 ValueError를 즉시 raise (묵시적 실패 금지)
 
 ```python
 # 올바른 오류 처리 예시

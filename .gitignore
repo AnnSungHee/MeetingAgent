@@ -22,6 +22,7 @@ env/
 # 스터디 세션 데이터 (개인 기록 포함 가능)
 data/sessions/*.json
 data/sessions/*.md
+data/usage/*.json
 
 # 로컬 로그
 test_result.log
@@ -45,4 +46,3 @@ Thumbs.db
 
 # 로컬 입력 샘플
 음성 009_음성 메모_memo.txt
-
