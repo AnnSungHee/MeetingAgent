@@ -7,6 +7,7 @@ LLM 어댑터: Claude(Anthropic) 또는 OpenAI를 통일된 인터페이스로 �
 """
 
 from dataclasses import dataclass
+import json
 from typing import Any, Optional
 
 from config.settings import settings
@@ -49,6 +50,46 @@ class LLMAdapter:
             return self._openai_chat(messages, tools, system)
         else:
             raise ValueError(f"지원하지 않는 LLM 제공자: {self.provider}")
+
+    def append_tool_results(
+        self,
+        messages: list[dict],
+        response: LLMResponse,
+        tool_results: list[dict],
+    ) -> None:
+        """도구 실행 결과를 제공자에 맞는 대화 이력 형식으로 추가한다."""
+        if self.provider == "anthropic":
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": tool_results})
+            return
+
+        if self.provider == "openai":
+            # OpenAI는 이전 assistant tool_calls를 다시 포함해야 후속 tool 메시지를
+            # 해당 호출과 연결할 수 있다. Anthropic의 content block 형식과 호환되지 않는다.
+            tool_calls = [
+                {
+                    "id": tool_use["id"],
+                    "type": "function",
+                    "function": {
+                        "name": tool_use["name"],
+                        "arguments": json.dumps(tool_use["input"], ensure_ascii=False),
+                    },
+                }
+                for tool_use in response.tool_uses
+            ]
+            messages.append({
+                "role": "assistant",
+                "content": self._text_content(response.content),
+                "tool_calls": tool_calls,
+            })
+            messages.extend({
+                "role": "tool",
+                "tool_call_id": result["tool_use_id"],
+                "content": result["content"],
+            } for result in tool_results)
+            return
+
+        raise ValueError(f"지원하지 않는 LLM 제공자: {self.provider}")
 
     def _anthropic_chat(
         self, messages: list[dict], tools: list[dict], system: str
@@ -93,8 +134,6 @@ class LLMAdapter:
             content.append({"type": "text", "text": message.content})
 
         if message.tool_calls:
-            import json
-
             for tc in message.tool_calls:
                 block = {
                     "type": "tool_use",
@@ -113,6 +152,12 @@ class LLMAdapter:
             content=content,
             tool_uses=tool_uses,
         )
+
+    @staticmethod
+    def _text_content(content: list[dict]) -> Optional[str]:
+        """표준화된 콘텐츠 블록에서 OpenAI assistant 텍스트를 추출한다."""
+        texts = [block["text"] for block in content if block.get("type") == "text"]
+        return "\n".join(texts) if texts else None
 
     @staticmethod
     def _to_openai_tool(anthropic_tool: dict) -> dict:
